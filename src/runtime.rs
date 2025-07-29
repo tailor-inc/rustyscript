@@ -1131,14 +1131,13 @@ mod test_runtime {
     fn test_new() {
         Runtime::new(RuntimeOptions::default()).expect("Could not create the runtime");
 
-        // Temporarily commented out due to API changes in deno_core extension macro
-        // use deno_core::extension;
-        // extension!(test_extension);
-        // Runtime::new(RuntimeOptions {
-        //     extensions: vec![test_extension::build((), false)],
-        //     ..Default::default()
-        // })
-        // .expect("Could not create runtime with extensions");
+        use deno_core::extension;
+        extension!(test_extension);
+        Runtime::new(RuntimeOptions {
+            extensions: vec![test_extension::init()],
+            ..Default::default()
+        })
+        .expect("Could not create runtime with extensions");
     }
 
     #[test]
