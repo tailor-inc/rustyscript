@@ -1,5 +1,5 @@
 use super::V8Value;
-use deno_core::v8::{self, HandleScope, WriteOptions};
+use deno_core::v8::{self, HandleScope};
 use serde::Deserialize;
 
 /// A Deserializable javascript UTF-16 string, that can be stored and used later

@@ -432,7 +432,7 @@ impl InnerRustyLoader {
         };
 
         // Load the module code, and transpile it if necessary
-        let code = handler(inner.clone(), module_specifier.clone()).await?.to_string();
+        let code = handler(inner.clone(), module_specifier.clone()).await?;
         let (tcode, source_map) = transpile(&module_specifier, &code)
             .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
 

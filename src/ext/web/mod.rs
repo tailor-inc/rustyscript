@@ -29,7 +29,7 @@ impl ExtensionTrait<WebOptions> for deno_fetch::deno_fetch {
             user_agent: options.user_agent.clone(),
             root_cert_store_provider: options.root_cert_store_provider.clone(),
             proxy: options.proxy.clone(),
-            request_builder_hook: None, // TODO: Convert AnyError to JsErrorBox
+            request_builder_hook: None, // TODO(ysh) as it's not used
             unsafely_ignore_certificate_errors: options.unsafely_ignore_certificate_errors.clone(),
             client_cert_chain_and_key: options.client_cert_chain_and_key.clone(),
             file_fetch_handler: options.file_fetch_handler.clone(),

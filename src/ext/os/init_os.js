@@ -1,8 +1,8 @@
 const core = globalThis.Deno.core;
 
 function exit(code = 0) {
-    if (typeof code !== "number" || !Number.isInteger(code)) {
-        throw new TypeError("Exit code must be an integer");
+    if (typeof code !== "number" || !Number.isInteger(code) || code < 0) {
+        throw new TypeError("Exit code must be a non-negative integer");
     }
     
     core.ops.op_rustyscript_exit(code);
