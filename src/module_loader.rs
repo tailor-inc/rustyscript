@@ -1,8 +1,8 @@
 //! Module loader implementation for rustyscript
 //! This module provides tools for caching module data, resolving module specifiers, and loading modules
 #![allow(deprecated)]
-use deno_core::{anyhow::Error, ModuleLoader, ModuleSpecifier};
 use deno_core::error::ModuleLoaderError;
+use deno_core::{anyhow::Error, ModuleLoader, ModuleSpecifier};
 use deno_error::JsErrorBox;
 use std::{borrow::Cow, cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -84,7 +84,8 @@ impl ModuleLoader for RustyLoader {
         referrer: &str,
         kind: deno_core::ResolutionKind,
     ) -> Result<ModuleSpecifier, ModuleLoaderError> {
-        self.inner_mut().resolve(specifier, referrer, kind)
+        self.inner_mut()
+            .resolve(specifier, referrer, kind)
             .map_err(|e| JsErrorBox::new("Error", e.to_string()).into())
     }
 
@@ -107,9 +108,9 @@ impl ModuleLoader for RustyLoader {
     }
 
     fn get_source_map(&self, file_name: &str) -> Option<Cow<'_, [u8]>> {
-        self.inner().get_source_map(file_name).and_then(|(_, source_map)| {
-            source_map.as_ref().map(|sm| Cow::Owned(sm.clone()))
-        })
+        self.inner()
+            .get_source_map(file_name)
+            .and_then(|(_, source_map)| source_map.as_ref().map(|sm| Cow::Owned(sm.clone())))
     }
 
     fn get_source_mapped_source_line(&self, file_name: &str, line_number: usize) -> Option<String> {

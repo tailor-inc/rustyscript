@@ -638,7 +638,6 @@ impl deno_fetch::FetchPermissions for PermissionsContainer {
         Ok(())
     }
 
-
     fn check_open<'a>(
         &mut self,
         path: Cow<'a, Path>,
@@ -668,7 +667,6 @@ impl deno_net::NetPermissions for PermissionsContainer {
         self.0.check_host(host.0.as_ref(), host.1, api_name)?;
         Ok(())
     }
-
 
     fn check_open<'a>(
         &mut self,

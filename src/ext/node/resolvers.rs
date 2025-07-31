@@ -1,15 +1,13 @@
 use deno_ast::{MediaType, ModuleSpecifier};
 use deno_fs::FileSystem;
-use deno_node::{
-    NodeExtInitServices, NodeRequireLoader, NodeResolver,
-};
-use node_resolver::PackageJsonResolver;
+use deno_node::{NodeExtInitServices, NodeRequireLoader, NodeResolver};
 use deno_resolver::{
     fs::{DenoResolverFs, DirEntry},
     npm::{ByonmNpmResolver, ByonmNpmResolverCreateOptions},
 };
 use deno_runtime::ops::process::NpmProcessStateProvider;
 use deno_semver::package::PackageReq;
+use node_resolver::PackageJsonResolver;
 use node_resolver::{
     errors::{ClosestPkgJsonError, PackageFolderResolveErrorKind, PackageNotFoundError},
     InNpmPackageChecker, NpmPackageFolderResolver,
@@ -336,7 +334,9 @@ impl NodeRequireLoader for RequireLoader {
         path: &Path,
     ) -> Result<deno_core::FastString, deno_error::JsErrorBox> {
         let media_type = MediaType::from_path(path);
-        let text = self.0.read_text_file_lossy_sync(path, None)
+        let text = self
+            .0
+            .read_text_file_lossy_sync(path, None)
             .map_err(|e| deno_error::JsErrorBox::new("Error", e.to_string()))?;
         Ok(deno_core::FastString::from(text.as_ref()))
     }
@@ -350,14 +350,18 @@ impl NodeRequireLoader for RequireLoader {
             .components()
             .all(|c| c.as_os_str().to_ascii_lowercase() != NODE_MODULES_DIR);
         if is_in_node_modules {
-            permissions.check_read_path(&path)
+            permissions
+                .check_read_path(&path)
                 .map_err(|e| deno_error::JsErrorBox::new("Error", e.to_string()))
         } else {
             Ok(path)
         }
     }
 
-    fn is_maybe_cjs(&self, specifier: &reqwest::Url) -> Result<bool, node_resolver::errors::ClosestPkgJsonError> {
+    fn is_maybe_cjs(
+        &self,
+        specifier: &reqwest::Url,
+    ) -> Result<bool, node_resolver::errors::ClosestPkgJsonError> {
         if specifier.scheme() != "file" {
             return Ok(false);
         }

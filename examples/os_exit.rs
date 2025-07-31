@@ -6,7 +6,7 @@
 /// process termination capabilities through Deno.exit().
 ///
 /// Note: This example doesn't actually call exit() as that would
-/// terminate the process. Instead, it demonstrates that the 
+/// terminate the process. Instead, it demonstrates that the
 /// functionality is available.
 ///
 use rustyscript::{Error, Module, Runtime, RuntimeOptions};
@@ -35,7 +35,7 @@ fn main() -> Result<(), Error> {
     let module_handle = runtime.load_module(&module)?;
 
     let has_exit: bool = runtime.get_value(Some(&module_handle), "hasExit")?;
-    
+
     if has_exit {
         println!("Success! The os_exit feature is working correctly.");
         println!("JavaScript code now has access to Deno.exit() for process termination.");

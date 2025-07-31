@@ -21,10 +21,7 @@ impl ExtensionTrait<Option<deno_cache::CreateCache>> for deno_cache::deno_cache 
     }
 }
 
-pub fn extensions(
-    options: Option<deno_cache::CreateCache>,
-    is_snapshot: bool,
-) -> Vec<Extension> {
+pub fn extensions(options: Option<deno_cache::CreateCache>, is_snapshot: bool) -> Vec<Extension> {
     vec![
         deno_cache::deno_cache::build(options, is_snapshot),
         init_cache::build((), is_snapshot),

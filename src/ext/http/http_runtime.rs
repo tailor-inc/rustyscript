@@ -45,7 +45,12 @@ impl deno_error::JsErrorClass for HttpStartError {
         self.to_string().into()
     }
 
-    fn get_additional_properties(&self) -> Box<dyn std::iter::Iterator<Item = (std::borrow::Cow<'static, str>, deno_error::PropertyValue)> + 'static> {
+    fn get_additional_properties(
+        &self,
+    ) -> Box<
+        dyn std::iter::Iterator<Item = (std::borrow::Cow<'static, str>, deno_error::PropertyValue)>
+            + 'static,
+    > {
         Box::new(std::iter::empty())
     }
 
@@ -107,5 +112,7 @@ fn op_http_start(
         ));
     }
 
-    Err(HttpStartError::Other(deno_core::anyhow::anyhow!("Invalid resource")))
+    Err(HttpStartError::Other(deno_core::anyhow::anyhow!(
+        "Invalid resource"
+    )))
 }

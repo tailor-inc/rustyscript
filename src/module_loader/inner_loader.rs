@@ -6,12 +6,12 @@ use crate::traits::ToModuleSpecifier;
 use crate::transpiler::{transpile, transpile_extension, ExtensionTranspilation};
 use deno_core::anyhow::{anyhow, Error};
 use deno_core::error::AnyError;
-use deno_error::JsErrorBox;
+use deno_core::error::ModuleLoaderError;
 use deno_core::futures::FutureExt;
 use deno_core::{
     FastString, ModuleLoadResponse, ModuleSource, ModuleSourceCode, ModuleSpecifier, ModuleType,
 };
-use deno_core::error::ModuleLoaderError;
+use deno_error::JsErrorBox;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -143,7 +143,9 @@ impl InnerRustyLoader {
         specifier: &FastString,
         code: &FastString,
     ) -> Result<ExtensionTranspilation, JsErrorBox> {
-        let specifier = specifier.as_str().to_module_specifier(&self.cwd)
+        let specifier = specifier
+            .as_str()
+            .to_module_specifier(&self.cwd)
             .map_err(|e| JsErrorBox::new("Error", e.to_string()))?;
         let code = code.as_str();
         transpile_extension(&specifier, code)
@@ -298,9 +300,10 @@ impl InnerRustyLoader {
         if let Some(result) = provider_result {
             return ModuleLoadResponse::Async(
                 async move {
-                    Self::handle_load(inner, module_specifier, |_, _| async move { 
+                    Self::handle_load(inner, module_specifier, |_, _| async move {
                         result.map_err(|e| JsErrorBox::new("Error", e.to_string()).into())
-                    }).await
+                    })
+                    .await
                 }
                 .boxed_local(),
             );
@@ -328,8 +331,9 @@ impl InnerRustyLoader {
                     "{} imports are not allowed here: {}",
                     module_specifier.scheme(),
                     module_specifier.as_str()
-                )
-            ).into())),
+                ),
+            )
+            .into())),
         }
     }
 
@@ -376,10 +380,18 @@ impl InnerRustyLoader {
     ) -> Result<String, ModuleLoaderError> {
         let path = module_specifier
             .to_file_path()
-            .map_err(|()| -> ModuleLoaderError { JsErrorBox::new("Error", format!("`{module_specifier}` is not a valid file URL.")).into() })?;
-        let content = tokio::fs::read_to_string(path).await
+            .map_err(|()| -> ModuleLoaderError {
+                JsErrorBox::new(
+                    "Error",
+                    format!("`{module_specifier}` is not a valid file URL."),
+                )
+                .into()
+            })?;
+        let content = tokio::fs::read_to_string(path)
+            .await
             .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
-        let content = Self::translate_cjs(inner, module_specifier, content).await
+        let content = Self::translate_cjs(inner, module_specifier, content)
+            .await
             .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
 
         Ok(content)
@@ -390,9 +402,12 @@ impl InnerRustyLoader {
         _: Rc<RefCell<Self>>,
         module_specifier: ModuleSpecifier,
     ) -> Result<String, ModuleLoaderError> {
-        let response = reqwest::get(module_specifier).await
+        let response = reqwest::get(module_specifier)
+            .await
             .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
-        let text = response.text().await
+        let text = response
+            .text()
+            .await
             .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
         Ok(text)
     }
@@ -459,8 +474,11 @@ impl InnerRustyLoader {
 
         // Run import provider post-processing
         if let Some(import_provider) = &mut inner.borrow_mut().import_provider {
-            source = import_provider.post_process(&module_specifier, source)
-                .map_err(|e| -> ModuleLoaderError { JsErrorBox::new("Error", e.to_string()).into() })?;
+            source = import_provider
+                .post_process(&module_specifier, source)
+                .map_err(|e| -> ModuleLoaderError {
+                    JsErrorBox::new("Error", e.to_string()).into()
+                })?;
         }
 
         Ok(source)

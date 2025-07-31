@@ -29,7 +29,7 @@ impl JsErrorClass for WebError {
             WebError::BufferTooLong => "RangeError".into(),
             WebError::ValueTooLarge => "RangeError".into(),
             WebError::BufferTooSmall => "RangeError".into(),
-            WebError::DataInvalid => "TypeError".into(), 
+            WebError::DataInvalid => "TypeError".into(),
             WebError::DataError(_) => "TypeError".into(),
         }
     }
@@ -38,7 +38,9 @@ impl JsErrorClass for WebError {
         self.to_string().into()
     }
 
-    fn get_additional_properties(&self) -> Box<dyn Iterator<Item = (std::borrow::Cow<'static, str>, PropertyValue)> + 'static> {
+    fn get_additional_properties(
+        &self,
+    ) -> Box<dyn Iterator<Item = (std::borrow::Cow<'static, str>, PropertyValue)> + 'static> {
         Box::new(std::iter::empty())
     }
 

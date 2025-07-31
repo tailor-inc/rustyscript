@@ -1,4 +1,4 @@
-use deno_cache::{CreateCache, CacheError};
+use deno_cache::{CacheError, CreateCache};
 use std::{path::Path, sync::Arc};
 
 /// Create a cache backed by SQLite
@@ -15,7 +15,8 @@ pub fn sqlite_cache(dir: impl AsRef<Path>) -> Result<CreateCache, CacheError> {
 pub fn temp_cache() -> CreateCache {
     let f = || {
         // Use a temporary directory for in-memory-like behavior
-        let temp_dir = std::env::temp_dir().join(format!("rustyscript_cache_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("rustyscript_cache_{}", std::process::id()));
         std::fs::create_dir_all(&temp_dir).map_err(|e| CacheError::Io(e))?;
         let inner = deno_cache::SqliteBackedCache::new(temp_dir)?;
         Ok(deno_cache::CacheImpl::Sqlite(inner))

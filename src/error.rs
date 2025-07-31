@@ -252,7 +252,11 @@ impl deno_error::JsErrorClass for Error {
         self.to_string().into()
     }
 
-    fn get_additional_properties(&self) -> Box<dyn Iterator<Item = (std::borrow::Cow<'static, str>, deno_error::PropertyValue)> + 'static> {
+    fn get_additional_properties(
+        &self,
+    ) -> Box<
+        dyn Iterator<Item = (std::borrow::Cow<'static, str>, deno_error::PropertyValue)> + 'static,
+    > {
         Box::new(std::iter::empty())
     }
 
