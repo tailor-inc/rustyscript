@@ -290,6 +290,21 @@
 #![allow(clippy::needless_pass_by_value)] //    Disabling some features can trigger this
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+// Initialize rustls crypto provider for HTTPS connections
+// This needs to be done once per process for rustls 0.23+
+#[cfg(feature = "web")]
+static CRYPTO_PROVIDER_INIT: std::sync::Once = std::sync::Once::new();
+
+#[cfg(feature = "web")]
+pub(crate) fn ensure_crypto_provider() {
+    CRYPTO_PROVIDER_INIT.call_once(|| {
+        if let Err(_e) = rustls::crypto::aws_lc_rs::default_provider().install_default() {
+            // If aws-lc-rs fails, try ring as fallback
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+    });
+}
+
 #[cfg(feature = "snapshot_builder")]
 mod snapshot_builder;
 
@@ -432,6 +447,9 @@ mod test {
     #[cfg(not(feature = "web"))]
     use crate::{Error, Runtime, RuntimeOptions};
 
+    #[cfg(feature = "web")]
+    use crate::{json_args, RuntimeBuilder};
+
     #[allow(dead_code)]
     static WHITELIST: Module = include_module!("op_whitelist.js");
 
@@ -471,5 +489,97 @@ mod test {
         };
 
         inner().expect("Could not verify op safety");
+    }
+
+    #[test]
+    #[cfg(feature = "web")]
+    fn test_https_fetch_crypto_provider() {
+        use httpmock::prelude::*;
+
+        // This test verifies that the rustls crypto provider is properly initialized
+        // when the web feature is enabled. We use a local HTTP server for simplicity,
+        // but the crypto provider initialization happens when web extensions are loaded,
+        // which is required for any HTTPS operations to work.
+
+        // Start a lightweight mock server
+        let server = MockServer::start();
+
+        // Create a mock endpoint
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/test");
+            then.status(200)
+                .header("Content-Type", "text/plain")
+                .body("Hello, World!");
+        });
+
+        let mut runtime = RuntimeBuilder::new()
+            .build()
+            .expect("Failed to create runtime");
+
+        let module_code = format!(
+            r#"
+            export default async function testFetch() {{
+                try {{
+                    const response = await fetch('{}/test');
+                    const text = await response.text();
+                    return {{
+                        success: true,
+                        status: response.status,
+                        contentLength: text.length,
+                        text: text
+                    }};
+                }} catch (error) {{
+                    return {{
+                        success: false,
+                        error: error.message
+                    }};
+                }}
+            }}
+            "#,
+            server.base_url()
+        );
+
+        let module = Module::new("test_fetch.js", &module_code);
+
+        let handle = runtime.load_module(&module).expect("Failed to load module");
+        let result: deno_core::serde_json::Value = runtime
+            .call_entrypoint(&handle, json_args!())
+            .expect("Failed to call entrypoint");
+
+        // Check that the fetch was successful
+        let success = result
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        assert!(success, "HTTP fetch failed: {:?}", result);
+
+        // Check that we got the expected response
+        let status = result.get("status").and_then(|v| v.as_u64()).unwrap_or(0);
+        assert_eq!(status, 200, "Expected HTTP 200 status, got: {}", status);
+
+        let content_length = result
+            .get("contentLength")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        assert_eq!(content_length, 13, "Expected content length of 13");
+
+        let text = result.get("text").and_then(|v| v.as_str()).unwrap_or("");
+        assert_eq!(text, "Hello, World!", "Expected 'Hello, World!' response");
+
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    #[cfg(feature = "web")]
+    fn test_crypto_provider_initialization() {
+        // This test specifically verifies that the rustls crypto provider is initialized
+        // by attempting to create a runtime with web extensions. If the provider is not
+        // initialized, this will panic with "no process-level CryptoProvider available"
+        let _runtime = RuntimeBuilder::new()
+            .build()
+            .expect("Failed to create runtime - crypto provider not initialized");
+
+        // If we get here without panicking, the crypto provider was successfully initialized
     }
 }

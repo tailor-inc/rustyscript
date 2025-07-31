@@ -108,6 +108,9 @@ impl ExtensionTrait<()> for deno_tls::deno_tls {
 }
 
 pub fn extensions(options: WebOptions, is_snapshot: bool) -> Vec<Extension> {
+    // Initialize rustls crypto provider for HTTPS connections
+    crate::ensure_crypto_provider();
+
     vec![
         deno_web::deno_web::build(options.clone(), is_snapshot),
         deno_telemetry::deno_telemetry::build((), is_snapshot),

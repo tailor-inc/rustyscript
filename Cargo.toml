@@ -120,7 +120,7 @@ web_stub = ["webidl", "base64-simd"]
     web = [
         "deno_web", "deno_tls", "deno_fetch", "deno_net", "dep:http", "deno_permissions", "deno_telemetry",
         "webidl", "console", "url", "crypto", "url_import", "fs_import",
-        "hyper-util"
+        "hyper-util", "dep:rustls"
     ]
 
     # [https://gpuweb.github.io/gpuweb/]
@@ -170,6 +170,9 @@ deno_core = "0.352.1"
 
 # For error handling
 deno_error = "0.6.1"
+
+# Rustls crypto provider for HTTPS connections
+rustls = { version = "0.23", optional = true, features = ["aws_lc_rs", "ring"] }
 
 # For feature checking
 deno_features = "0.8.0"
@@ -247,6 +250,7 @@ checksum      = { version = "0.2.1", optional = true }
 [dev-dependencies]
 version-sync = "0.9.5"
 criterion = "0.5.1"
+httpmock = "0.7"
 
 [[example]]
 name = "custom_threaded_worker"
