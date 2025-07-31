@@ -1126,15 +1126,15 @@ mod test_runtime {
     use std::time::Duration;
 
     use super::*;
-    use deno_core::extension;
 
     #[test]
     fn test_new() {
         Runtime::new(RuntimeOptions::default()).expect("Could not create the runtime");
 
+        use deno_core::extension;
         extension!(test_extension);
         Runtime::new(RuntimeOptions {
-            extensions: vec![test_extension::init_ops_and_esm()],
+            extensions: vec![test_extension::init()],
             ..Default::default()
         })
         .expect("Could not create runtime with extensions");
