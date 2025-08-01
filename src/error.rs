@@ -285,7 +285,7 @@ impl deno_error::JsErrorClass for Error {
 
 #[cfg(test)]
 mod test {
-    use crate::{error::ErrorFormattingOptions, Error, Module, Runtime, RuntimeOptions, Undefined};
+    use crate::{error::ErrorFormattingOptions, Module, Runtime, RuntimeOptions, Undefined};
 
     #[test]
     #[rustfmt::skip]
@@ -309,6 +309,7 @@ mod test {
 
     #[test]
     fn test_error_type_compatibility() {
+        use crate::Error;
         let mut runtime = Runtime::new(RuntimeOptions::default()).unwrap();
 
         // Test syntax error - should return JsError for compatibility with 0.1.0
