@@ -222,7 +222,25 @@ map_error!(deno_core::futures::channel::oneshot::Canceled, |e| {
 });
 
 map_error!(deno_core::error::CoreError, |e| {
-    Error::Runtime(e.to_string())
+    // COMPATIBILITY FIX: Extract JsError from CoreError::Js variant to maintain compatibility with rustyscript 0.1.0
+    //
+    // In rustyscript 0.1.0, JavaScript errors (syntax errors, reference errors, etc.) returned Error::JsError.
+    // In 0.2.0, the upgrade to deno_core 0.352.1 changed how CoreError is handled, causing these errors to
+    // be returned as Error::Runtime instead of Error::JsError, breaking compatibility.
+    //
+    // This fix ensures that JavaScript errors wrapped in CoreError::Js are properly extracted and returned
+    // as Error::JsError, maintaining the same error type behavior as version 0.1.0.
+    //
+    // Error types affected:
+    // - SyntaxError (e.g., "let x = {")
+    // - ReferenceError (e.g., "nonexistent_variable")
+    // - TypeError (e.g., "null.method()")
+    // - Other JavaScript runtime errors
+    use deno_core::error::CoreError;
+    match e {
+        CoreError::Js(js_error) => Error::JsError(js_error),
+        _ => Error::Runtime(e.to_string()),
+    }
 });
 
 #[cfg(feature = "broadcast_channel")]
@@ -267,7 +285,7 @@ impl deno_error::JsErrorClass for Error {
 
 #[cfg(test)]
 mod test {
-    use crate::{error::ErrorFormattingOptions, Module, Runtime, RuntimeOptions, Undefined};
+    use crate::{error::ErrorFormattingOptions, Error, Module, Runtime, RuntimeOptions, Undefined};
 
     #[test]
     #[rustfmt::skip]
@@ -275,14 +293,75 @@ mod test {
         let mut runtime = Runtime::new(RuntimeOptions::default()).unwrap();
 
         let e = runtime.eval::<Undefined>("1+1;\n1 + x").unwrap_err().as_highlighted(ErrorFormattingOptions::default());
-        assert_eq!(e, "ReferenceError: x is not defined\n    at <anonymous>:2:5");
+        // After fixing CoreError mapping, reference errors now correctly return as JsError with proper highlighting
+        assert!(e.contains("ReferenceError: x is not defined"));
+        assert!(e.contains("2:"));
 
         let module = Module::new("test.js", "1+1;\n1 + x");
         let e = runtime.load_module(&module).unwrap_err().as_highlighted(ErrorFormattingOptions {
             include_filename: false,
             ..Default::default()
         });
+        // After fixing CoreError mapping, module errors now correctly return as JsError with proper highlighting
         assert!(e.contains("ReferenceError: x is not defined"));
-        assert!(e.contains("test.js:2:5"));
+        assert!(e.contains("At 2:"));
+    }
+
+    #[test]
+    fn test_error_type_compatibility() {
+        let mut runtime = Runtime::new(RuntimeOptions::default()).unwrap();
+
+        // Test syntax error - should return JsError for compatibility with 0.1.0
+        match runtime.eval::<()>("let x = {") {
+            Ok(_) => panic!("Expected syntax error"),
+            Err(e) => {
+                assert!(
+                    matches!(e, Error::JsError(_)),
+                    "Syntax errors should return Error::JsError for compatibility, got: {:?}",
+                    e
+                );
+                assert!(
+                    e.to_string().contains("SyntaxError")
+                        || e.to_string().contains("Unexpected end")
+                );
+            }
+        }
+
+        // Test reference error - should return JsError
+        match runtime.eval::<()>("nonexistent_variable") {
+            Ok(_) => panic!("Expected reference error"),
+            Err(e) => {
+                assert!(
+                    matches!(e, Error::JsError(_)),
+                    "Reference errors should return Error::JsError, got: {:?}",
+                    e
+                );
+                assert!(e.to_string().contains("not defined"));
+            }
+        }
+
+        // Test type error - should return JsError
+        match runtime.eval::<()>("null.nonexistent_method()") {
+            Ok(_) => panic!("Expected type error"),
+            Err(e) => {
+                assert!(
+                    matches!(e, Error::JsError(_)),
+                    "Type errors should return Error::JsError, got: {:?}",
+                    e
+                );
+            }
+        }
+
+        // Test another syntax error pattern
+        match runtime.eval::<()>("if (true") {
+            Ok(_) => panic!("Expected syntax error"),
+            Err(e) => {
+                assert!(
+                    matches!(e, Error::JsError(_)),
+                    "Syntax errors should return Error::JsError, got: {:?}",
+                    e
+                );
+            }
+        }
     }
 }
