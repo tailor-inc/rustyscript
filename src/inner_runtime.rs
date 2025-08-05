@@ -271,13 +271,16 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
 
         // Store the V8 isolate handle in OpState so script exit operations can access it
         // This enables immediate termination of JavaScript execution, including infinite loops
-        let isolate_handle = deno_runtime.rt_mut().v8_isolate().thread_safe_handle();
-        let isolate_handle_wrapper =
-            crate::ext::os::V8IsolateHandle(std::rc::Rc::new(isolate_handle));
+        #[cfg(feature = "os_exit")]
         {
-            let op_state = deno_runtime.rt_mut().op_state();
-            let mut op_state = op_state.borrow_mut();
-            op_state.put(isolate_handle_wrapper);
+            let isolate_handle = deno_runtime.rt_mut().v8_isolate().thread_safe_handle();
+            let isolate_handle_wrapper =
+                crate::ext::os::V8IsolateHandle(std::rc::Rc::new(isolate_handle));
+            {
+                let op_state = deno_runtime.rt_mut().op_state();
+                let mut op_state = op_state.borrow_mut();
+                op_state.put(isolate_handle_wrapper);
+            }
         }
 
         // Add a callback to terminate the runtime if the max_heap_size limit is approached
@@ -837,6 +840,7 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
     }
 
     /// Check if there's a script exit request in the OpState and retrieve it
+    #[cfg(feature = "os_exit")]
     pub fn get_script_exit_request(&mut self) -> Option<crate::ext::os::ScriptExitRequest> {
         let state = self.deno_runtime().op_state();
         if let Ok(mut state) = state.try_borrow_mut() {
@@ -847,10 +851,17 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
         None
     }
 
+    /// Stub version when os_exit feature is disabled
+    #[cfg(not(feature = "os_exit"))]
+    pub fn get_script_exit_request(&mut self) -> Option<()> {
+        None
+    }
+
     /// Check for script exit requests and handle them
     /// Returns ScriptExit error if an exit was requested, otherwise returns the original result
     pub fn handle_script_exit<T>(&mut self, result: Result<T, Error>) -> Result<T, Error> {
         // First check if there's an exit request
+        #[cfg(feature = "os_exit")]
         if let Some(exit_request) = self.get_script_exit_request() {
             // Reset the isolate state after termination so it can be reused
             let scope = self.deno_runtime().handle_scope();
@@ -859,6 +870,9 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
             // Return ScriptExit error to indicate controlled termination
             return Err(Error::ScriptExit(exit_request.code, exit_request.reason));
         }
+
+        #[cfg(not(feature = "os_exit"))]
+        let _ = self.get_script_exit_request(); // Consume the Option<()>
 
         // Check if the error is from V8 termination (in case the exit request was consumed elsewhere)
         if let Err(ref error) = result {
