@@ -269,6 +269,17 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
             ..Default::default()
         })?;
 
+        // Store the V8 isolate handle in OpState so script exit operations can access it
+        // This enables immediate termination of JavaScript execution, including infinite loops
+        let isolate_handle = deno_runtime.rt_mut().v8_isolate().thread_safe_handle();
+        let isolate_handle_wrapper =
+            crate::ext::os::V8IsolateHandle(std::rc::Rc::new(isolate_handle));
+        {
+            let op_state = deno_runtime.rt_mut().op_state();
+            let mut op_state = op_state.borrow_mut();
+            op_state.put(isolate_handle_wrapper);
+        }
+
         // Add a callback to terminate the runtime if the max_heap_size limit is approached
         if options.max_heap_size.is_some() {
             let isolate_handle = deno_runtime.rt_mut().v8_isolate().thread_safe_handle();
@@ -443,8 +454,10 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
     /// result cannot be deserialized.
     #[allow(clippy::unused_async, reason = "Prevent panic on sleep calls")]
     pub async fn eval(&mut self, expr: impl ToString) -> Result<v8::Global<v8::Value>, Error> {
-        let result = self.deno_runtime().execute_script("", expr.to_string())?;
-        Ok(result)
+        let result = self.deno_runtime().execute_script("", expr.to_string());
+
+        // Check for script exit requests after evaluation
+        self.handle_script_exit(result.map_err(Error::from))
     }
 
     /// Attempt to get a value out of the global context (globalThis.name)
@@ -505,8 +518,10 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
         let result = self
             .deno_runtime()
             .with_event_loop_future(future, PollEventLoopOptions::default())
-            .await?;
-        Ok(result)
+            .await;
+
+        // Check for script exit requests after resolving
+        self.handle_script_exit(result.map_err(Error::from))
     }
 
     pub fn decode_value<T>(&mut self, value: v8::Global<v8::Value>) -> Result<T, Error>
@@ -765,8 +780,12 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
             );
 
             let mod_load = self.deno_runtime().mod_evaluate(s_modid);
-            self.with_event_loop_future(mod_load, PollEventLoopOptions::default())
-                .await?;
+            let result = self
+                .with_event_loop_future(mod_load, PollEventLoopOptions::default())
+                .await;
+
+            // Check for script exit requests after module evaluation
+            self.handle_script_exit(result)?;
             module_handle_stub = ModuleHandle::new(side_module, s_modid, None);
         }
 
@@ -798,8 +817,12 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
 
             // Finish execution
             let mod_load = self.deno_runtime().mod_evaluate(module_id);
-            self.with_event_loop_future(mod_load, PollEventLoopOptions::default())
-                .await?;
+            let result = self
+                .with_event_loop_future(mod_load, PollEventLoopOptions::default())
+                .await;
+
+            // Check for script exit requests after module evaluation
+            self.handle_script_exit(result)?;
             module_handle_stub = ModuleHandle::new(module, module_id, None);
         }
 
@@ -811,6 +834,65 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
             module_handle_stub.id(),
             entrypoint,
         ))
+    }
+
+    /// Check if there's a script exit request in the OpState and retrieve it
+    pub fn get_script_exit_request(&mut self) -> Option<crate::ext::os::ScriptExitRequest> {
+        let state = self.deno_runtime().op_state();
+        if let Ok(mut state) = state.try_borrow_mut() {
+            if state.has::<crate::ext::os::ScriptExitRequest>() {
+                return Some(state.take::<crate::ext::os::ScriptExitRequest>());
+            }
+        }
+        None
+    }
+
+    /// Check for script exit requests and handle them
+    /// Returns ScriptExit error if an exit was requested, otherwise returns the original result
+    pub fn handle_script_exit<T>(&mut self, result: Result<T, Error>) -> Result<T, Error> {
+        // First check if there's an exit request
+        if let Some(exit_request) = self.get_script_exit_request() {
+            // Reset the isolate state after termination so it can be reused
+            let scope = self.deno_runtime().handle_scope();
+            scope.cancel_terminate_execution();
+
+            // Return ScriptExit error to indicate controlled termination
+            return Err(Error::ScriptExit(exit_request.code, exit_request.reason));
+        }
+
+        // Check if the error is from V8 termination (in case the exit request was consumed elsewhere)
+        if let Err(ref error) = result {
+            // Check if this looks like a V8 termination error
+            if let Error::JsError(js_error) = error {
+                // Source: V8 isolate termination produces specific error messages from deno_core:
+                // 1. "JavaScript execution has been terminated" - from ExecutionTerminated error variant
+                //    See: https://github.com/denoland/deno_core/blob/v0.352.1/core/error.rs#L72-L74
+                //    Used when module evaluation is attempted after termination
+                // 2. "execution terminated" - generated when V8 termination occurs without existing exception
+                //    See: https://github.com/denoland/deno_core/blob/v0.352.1/core/error.rs#L1129-L1130
+                //    Created by: `let message = v8::String::new(scope, "execution terminated").unwrap();`
+                //    Used in JsError::from_v8_exception when was_terminating_execution is true
+                if js_error
+                    .message
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("JavaScript execution has been terminated")
+                    || js_error
+                        .message
+                        .as_deref()
+                        .unwrap_or("")
+                        .contains("execution terminated")
+                {
+                    // This is a V8 termination - reset isolate and return a generic script exit
+                    let scope = self.deno_runtime().handle_scope();
+                    scope.cancel_terminate_execution();
+                    return Err(Error::ScriptExit(1, Some("Script terminated".to_string())));
+                }
+            }
+        }
+
+        // No exit request, return the original result
+        result
     }
 }
 

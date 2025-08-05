@@ -74,9 +74,41 @@ pub enum Error {
     /// Triggers when the heap (via `max_heap_size`) is exhausted during execution
     #[error("Heap exhausted")]
     HeapExhausted,
+
+    /// Indicates that a script has exited via Deno.exit() - this is not an error but a controlled termination
+    #[error("Script exited with code {0}")]
+    ScriptExit(i32, Option<String>),
 }
 
 impl Error {
+    /// Check if this error represents a script exit and return the exit code and reason
+    ///
+    /// # Returns
+    /// `Some((exit_code, reason))` if this is a script exit, `None` otherwise
+    ///
+    /// # Example
+    /// ```rust
+    /// use rustyscript::{Runtime, RuntimeOptions, Module};
+    ///
+    /// let mut runtime = Runtime::new(RuntimeOptions::default()).unwrap();
+    /// let module = Module::new("test.js", "Deno.exit(42);");
+    ///
+    /// match runtime.load_module(&module) {
+    ///     Err(e) => {
+    ///         if let Some((code, reason)) = e.as_script_exit() {
+    ///             println!("Script exited with code: {}", code);
+    ///         }
+    ///     }
+    ///     _ => {}
+    /// }
+    /// ```
+    pub fn as_script_exit(&self) -> Option<(i32, Option<String>)> {
+        match self {
+            Error::ScriptExit(code, reason) => Some((*code, reason.clone())),
+            _ => None,
+        }
+    }
+
     /// Formats an error for display in a terminal
     /// If the error is a `JsError`, it will attempt to highlight the source line
     /// in this format:
@@ -263,6 +295,7 @@ impl deno_error::JsErrorClass for Error {
             Error::JsError(_) => "Error".into(),
             Error::Timeout(_) => "Error".into(),
             Error::HeapExhausted => "RangeError".into(),
+            Error::ScriptExit(_, _) => "Error".into(),
         }
     }
 
