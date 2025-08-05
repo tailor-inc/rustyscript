@@ -148,8 +148,7 @@ fn test_zero_tolerance() -> Result<(), Error> {
 
     let Err(e) = result else {
         return Err(Error::Runtime(
-            "CRITICAL: Zero-tolerance test completed - immediate termination failed!"
-                .to_string(),
+            "CRITICAL: Zero-tolerance test completed - immediate termination failed!".to_string(),
         ));
     };
 
