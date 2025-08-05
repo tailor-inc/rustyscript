@@ -24,6 +24,7 @@ jobs:
     - name: worker_pool
       run: cargo run --example worker_pool --features "worker"
 
+## MEMO(ysh): Comment out due to upstream breaking changes
 #    - name: web_features
 #      run: cargo run --example web_features --features "web"
 
@@ -87,5 +88,6 @@ jobs:
     - name: async_eval
       run: cargo run --example async_eval
 
+## MEMO(ysh): Comment out due to upstream breaking changes
 #    - name: websocket
 #      run: cargo run --example websocket --features="web websocket"
