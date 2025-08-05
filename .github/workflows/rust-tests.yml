@@ -1,0 +1,43 @@
+name: Rust Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: 1.88.0
+    
+    - name: Cache cargo dependencies
+      uses: Swatinem/rust-cache@v2
+    
+    - name: Run barebones tests (no features)
+      run: cargo test --no-default-features --lib
+    
+    - name: Run default tests
+      run: cargo test --verbose --lib
+    
+    - name: Run web tests
+      run: cargo test --features "web" --lib
+    
+    - name: Run complete tests (all features)
+      run: cargo test --features "default,snapshot_builder,fs_import,url_import,web,os_exit" --lib

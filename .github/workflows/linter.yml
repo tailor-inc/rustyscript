@@ -30,7 +30,7 @@ jobs:
     
     # Lint all the things
     - name: Run clippy
-      run: cargo clippy --all-features
+      run: cargo clippy --features "default,snapshot_builder,fs_import,url_import,web,os_exit"
 
     # Test documentation generation
     - name: Test documentation

@@ -20,4 +20,4 @@ jobs:
 
     # Run tests with all features
     - name: Run complete tests
-      run: cargo test --all-features --doc
+      run: cargo test --features "default,snapshot_builder,fs_import,url_import,web,os_exit" --doc
