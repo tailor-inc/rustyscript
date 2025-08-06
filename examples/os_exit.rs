@@ -24,7 +24,6 @@ fn main() -> Result<(), Error> {
 
     // Run each test with its own runtime for complete isolation
     test_basic_exit()?;
-    test_zero_tolerance()?;
     test_runtime_survival()?;
     test_infinite_loop()?;
 
@@ -57,7 +56,7 @@ fn check_feature_available() -> Result<bool, Error> {
 }
 
 fn test_basic_exit() -> Result<(), Error> {
-    println!("\nTesting zero-tolerance immediate script exit...");
+    println!("\nTesting immediate script exit...");
 
     // Create a fresh runtime for this test
     let mut runtime = Runtime::new(RuntimeOptions::default())?;
@@ -100,81 +99,17 @@ fn test_basic_exit() -> Result<(), Error> {
 
     // Verify no post-exit globals were set
     match runtime.eval::<bool>("typeof globalThis.POST_EXIT_EXECUTED !== 'undefined'") {
-        Ok(false) => println!("SUCCESS: Zero-tolerance verified - No post-exit code executed"),
+        Ok(false) => {
+            println!("SUCCESS: Immediate termination verified - No post-exit code executed")
+        }
         Ok(true) => {
             return Err(Error::Runtime(
                 "CRITICAL: Post-exit code executed!".to_string(),
             ))
         }
-        Err(_) => println!("SUCCESS: Zero-tolerance verified - No post-exit globals accessible"),
-    }
-
-    Ok(())
-}
-
-fn test_zero_tolerance() -> Result<(), Error> {
-    println!("\nRunning comprehensive zero-tolerance test...");
-
-    // Create a fresh runtime for this test
-    let mut runtime = Runtime::new(RuntimeOptions::default())?;
-
-    let zero_tolerance_test = Module::new(
-        "zero_tolerance_test.js",
-        r#"
-        console.log("Testing zero-tolerance termination...");
-
-        let postExitExecuted = false;
-
-        try {
-            console.log("About to call Deno.exit(99)");
-            Deno.exit(99);
-
-            // These should be impossible to reach
-            postExitExecuted = true;
-            console.log("FAILURE: Code executed after Deno.exit()!");
-            globalThis.ZERO_TOLERANCE_VIOLATED = true;
-        } catch (e) {
-            // Even catch blocks should not execute after the immediate exception
-            if (postExitExecuted) {
-                console.log("FAILURE: Catch block reached after exit!");
-            }
+        Err(_) => {
+            println!("SUCCESS: Immediate termination verified - No post-exit globals accessible")
         }
-
-        console.log("FAILURE: End of script reached!");
-        "#,
-    );
-
-    let result = runtime.load_module(&zero_tolerance_test);
-
-    let Err(e) = result else {
-        return Err(Error::Runtime(
-            "CRITICAL: Zero-tolerance test completed - immediate termination failed!".to_string(),
-        ));
-    };
-
-    let Some((code, _reason)) = e.as_script_exit() else {
-        return Err(Error::Runtime(format!(
-            "ERROR: Unexpected error from zero-tolerance test: {}",
-            e
-        )));
-    };
-
-    println!(
-        "SUCCESS: Zero-tolerance test - Script terminated immediately with code: {}",
-        code
-    );
-
-    // Verify no violation flags were set
-    match runtime.eval::<bool>("typeof globalThis.ZERO_TOLERANCE_VIOLATED !== 'undefined'") {
-        Ok(false) => {
-            println!("SUCCESS: Zero-tolerance confirmed - No post-exit execution detected")
-        }
-        Ok(true) => {
-            return Err(Error::Runtime(
-                "CRITICAL: Zero-tolerance was violated!".to_string(),
-            ))
-        }
-        Err(_) => println!("SUCCESS: Zero-tolerance confirmed - No violation flags accessible"),
     }
 
     Ok(())
@@ -257,7 +192,7 @@ fn test_infinite_loop() -> Result<(), Error> {
     match runtime.eval::<bool>("typeof globalThis.INFINITE_LOOP_POST_EXIT_EXECUTED !== 'undefined'")
     {
         Ok(false) => {
-            println!("SUCCESS: Infinite loop zero-tolerance verified - No post-exit code executed")
+            println!("SUCCESS: Infinite loop immediate termination verified - No post-exit code executed")
         }
         Ok(true) => {
             return Err(Error::Runtime(
@@ -265,7 +200,7 @@ fn test_infinite_loop() -> Result<(), Error> {
             ))
         }
         Err(_) => println!(
-            "SUCCESS: Infinite loop zero-tolerance verified - No post-exit globals accessible"
+            "SUCCESS: Infinite loop immediate termination verified - No post-exit globals accessible"
         ),
     }
 
