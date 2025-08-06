@@ -874,30 +874,6 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
         #[cfg(not(feature = "os_exit"))]
         let _ = self.get_script_exit_request(); // Consume the Option<()>
 
-        // Check if the error is from V8 termination (in case the exit request was consumed elsewhere)
-        if let Err(ref error) = result {
-            // Check if this looks like a V8 termination error
-            if let Error::JsError(js_error) = error {
-                // Source: V8 isolate termination produces specific error messages from deno_core:
-                // 1. "JavaScript execution has been terminated" - from ExecutionTerminated error variant
-                //    See: https://github.com/denoland/deno_core/blob/v0.352.1/core/error.rs#L72-L74
-                //    Used when module evaluation is attempted after termination
-                // 2. "execution terminated" - generated when V8 termination occurs without existing exception
-                //    See: https://github.com/denoland/deno_core/blob/v0.352.1/core/error.rs#L1129-L1130
-                //    Created by: `let message = v8::String::new(scope, "execution terminated").unwrap();`
-                //    Used in JsError::from_v8_exception when was_terminating_execution is true
-                let msg = js_error.message.as_deref().unwrap_or("");
-                if msg.contains("JavaScript execution has been terminated")
-                    || msg.contains("execution terminated")
-                {
-                    // This is a V8 termination - reset isolate and return a generic script exit
-                    let scope = self.deno_runtime().handle_scope();
-                    scope.cancel_terminate_execution();
-                    return Err(Error::ScriptExit(1, Some("Script terminated".to_string())));
-                }
-            }
-        }
-
         // No exit request, return the original result
         result
     }
