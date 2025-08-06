@@ -84,7 +84,7 @@ fn test_basic_exit() -> Result<(), Error> {
         ));
     };
 
-    let Some((code, reason)) = e.as_script_exit() else {
+    let Some(code) = e.as_script_exit() else {
         return Err(Error::Runtime(format!("ERROR: Unexpected error: {}", e)));
     };
 
@@ -92,10 +92,6 @@ fn test_basic_exit() -> Result<(), Error> {
         "SUCCESS: Basic test - Script exited immediately with code: {}",
         code
     );
-
-    if let Some(reason) = reason {
-        println!("  Reason: {}", reason);
-    }
 
     // Verify no post-exit globals were set
     match runtime.eval::<bool>("typeof globalThis.POST_EXIT_EXECUTED !== 'undefined'") {
@@ -172,7 +168,7 @@ fn test_infinite_loop() -> Result<(), Error> {
         ));
     };
 
-    let Some((code, reason)) = e.as_script_exit() else {
+    let Some(code) = e.as_script_exit() else {
         return Err(Error::Runtime(format!(
             "ERROR: Unexpected error from infinite loop: {}",
             e
@@ -183,10 +179,6 @@ fn test_infinite_loop() -> Result<(), Error> {
         "SUCCESS: Infinite loop script exited cleanly with code: {}",
         code
     );
-
-    if let Some(reason) = reason {
-        println!("  Reason: {}", reason);
-    }
 
     // CRITICAL: Verify no post-exit code executed in infinite loop
     match runtime.eval::<bool>("typeof globalThis.INFINITE_LOOP_POST_EXIT_EXECUTED !== 'undefined'")

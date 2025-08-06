@@ -868,7 +868,7 @@ impl<RT: RuntimeTrait> InnerRuntime<RT> {
             scope.cancel_terminate_execution();
 
             // Return ScriptExit error to indicate controlled termination
-            return Err(Error::ScriptExit(exit_request.code, exit_request.reason));
+            return Err(Error::ScriptExit(exit_request.code));
         }
 
         #[cfg(not(feature = "os_exit"))]

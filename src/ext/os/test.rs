@@ -81,7 +81,7 @@ mod tests {
         match result {
             Err(e) => {
                 // Check if this is a script exit with code 42
-                if let Some((code, _reason)) = e.as_script_exit() {
+                if let Some(code) = e.as_script_exit() {
                     assert_eq!(code, 42, "Exit code should be 42");
                 } else {
                     panic!("Expected ScriptExit error, got: {:?}", e);
@@ -128,7 +128,7 @@ mod tests {
         // Verify that we got a script exit error
         match result {
             Err(e) => {
-                if let Some((code, _reason)) = e.as_script_exit() {
+                if let Some(code) = e.as_script_exit() {
                     assert_eq!(code, 99, "Exit code should be 99");
                 } else {
                     panic!("Expected ScriptExit error, got: {:?}", e);

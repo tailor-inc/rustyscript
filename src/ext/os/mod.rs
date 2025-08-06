@@ -6,7 +6,6 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub struct ScriptExitRequest {
     pub code: i32,
-    pub reason: Option<String>,
 }
 
 /// Wrapper for V8 isolate handle that can be stored in OpState
@@ -18,7 +17,7 @@ pub struct V8IsolateHandle(pub Rc<deno_core::v8::IsolateHandle>);
 #[op2(fast)]
 fn op_script_exit(state: &mut OpState, #[smi] code: i32) -> Result<(), crate::Error> {
     // Store the exit request in OpState for retrieval after termination
-    let exit_request = ScriptExitRequest { code, reason: None };
+    let exit_request = ScriptExitRequest { code };
     state.put(exit_request);
 
     // IMMEDIATE TERMINATION: Terminate V8 execution immediately

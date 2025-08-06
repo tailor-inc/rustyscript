@@ -77,14 +77,14 @@ pub enum Error {
 
     /// Indicates that a script has exited via Deno.exit() - this is not an error but a controlled termination
     #[error("Script exited with code {0}")]
-    ScriptExit(i32, Option<String>),
+    ScriptExit(i32),
 }
 
 impl Error {
-    /// Check if this error represents a script exit and return the exit code and reason
+    /// Check if this error represents a script exit and return the exit code
     ///
     /// # Returns
-    /// `Some((exit_code, reason))` if this is a script exit, `None` otherwise
+    /// `Some(exit_code)` if this is a script exit, `None` otherwise
     ///
     /// # Example
     /// ```rust
@@ -95,16 +95,16 @@ impl Error {
     ///
     /// match runtime.load_module(&module) {
     ///     Err(e) => {
-    ///         if let Some((code, reason)) = e.as_script_exit() {
+    ///         if let Some(code) = e.as_script_exit() {
     ///             println!("Script exited with code: {}", code);
     ///         }
     ///     }
     ///     _ => {}
     /// }
     /// ```
-    pub fn as_script_exit(&self) -> Option<(i32, Option<String>)> {
+    pub fn as_script_exit(&self) -> Option<i32> {
         match self {
-            Error::ScriptExit(code, reason) => Some((*code, reason.clone())),
+            Error::ScriptExit(code) => Some(*code),
             _ => None,
         }
     }
@@ -295,7 +295,7 @@ impl deno_error::JsErrorClass for Error {
             Error::JsError(_) => "Error".into(),
             Error::Timeout(_) => "Error".into(),
             Error::HeapExhausted => "RangeError".into(),
-            Error::ScriptExit(_, _) => "Error".into(),
+            Error::ScriptExit(_) => "Error".into(),
         }
     }
 
