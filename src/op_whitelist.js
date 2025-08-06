@@ -90,6 +90,7 @@ export const whitelist = {
     "call_registered_function": "Rustyscript builtin",
     "call_registered_function_async": "Rustyscript builtin",
     "op_panic2": "Panic stub to replace op_panic",
+    "op_script_exit": "Rustyscript builtin - controlled script termination (replaces dangerous process exit)",
 
     //
     // v8 ops

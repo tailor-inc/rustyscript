@@ -88,6 +88,9 @@ jobs:
     - name: async_eval
       run: cargo run --example async_eval
 
+    - name: os_exit
+      run: cargo run --example os_exit --features="os_exit"
+
 ## MEMO(ysh): Comment out due to upstream breaking changes
 #    - name: websocket
 #      run: cargo run --example websocket --features="web websocket"
